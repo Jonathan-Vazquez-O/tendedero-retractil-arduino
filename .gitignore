@@ -1,0 +1,9 @@
+# macOS
+.DS_Store
+._*
+
+# Arduino IDE / temporales
+*.hex
+*.elf
+build/
+.vscode/
