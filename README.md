@@ -11,18 +11,17 @@ Proyecto final de la materia de **Programación** enfocado en resolver una situa
 
 **Usuarios y utilidad:** Está dirigido a hogares y pequeños espacios domésticos que utilizan tendederos exteriores. El sistema detecta gotas de agua en tiempo real y acciona un mecanismo retráctil para resguardar la ropa automáticamente sin intervención manual.
 
-**Objetivo:** Desarrollar un prototipo funcional con **Arduino Uno**, un **sensor de nivel de agua HW-038** y un **servomotor** que muestre las lecturas analógicas del sensor en tiempo real, accione el resguardo automático del tendedero al superar el umbral de agua y regrese a su posición abierta cuando la superficie se seque, gestionando todo el desarrollo con Git y GitHub.
+**Objetivo:** Desarrollar un prototipo funcional con **Arduino Uno**, un **sensor de nivel de agua HW-038** y un **micro servomotor Steren MOT-100** que muestre las lecturas analógicas del sensor en tiempo real, accione el resguardo automático del tendedero al superar el umbral de agua y regrese a su posición abierta cuando la superficie se seque, gestionando todo el desarrollo con Git y GitHub.
 
 ## Sensor, lenguaje y herramientas utilizados
 - **Microcontrolador:** Arduino Uno (ATmega328P, 5 V).
 - **Sensor:** Módulo sensor de nivel de agua **HW-038** (salida analógica `S` proporcional a la presencia de agua sobre sus pistas metálicas).
-- **Actuador:** Servomotor SG90 (controlado por señal PWM).
+- **Actuador:** Micro servomotor **Steren MOT-100** (alimentación de 3.5–6 Vcc, rotación de 0° a 180°, torque de 1.8 kgf/cm a 4.8–5 Vcc, controlado por señal PWM).
 - **Lenguaje de programación:** C/C++ (Arduino) con la librería estándar `Servo.h`.
 - **Herramientas:** Arduino IDE, protoboard, cables jumper, Git (control de versiones local) y GitHub (repositorio remoto y colaboración).
 
 **Justificación:** Se eligió C/C++ en Arduino IDE porque permite leer señales analógicas en tiempo real con baja latencia y controlar servomotores directamente sin configuraciones complejas. El sensor HW-038 permite detectar gotas de lluvia con solo 3 pines y calibrar el umbral directamente por software. Git y GitHub permiten documentar el avance real de cada integrante mediante ramas, commits y pull requests.
 
-*Referencia base adaptada de Arduino Nano y sensor de lluvia digital a Arduino Uno con sensor HW-038:* [Rain Detector System | Arduino Project](http://www.youtube.com/watch?v=3WZHMYPsSo8).
 
 ## Instrucciones de instalación, conexión y ejecución
 
@@ -57,30 +56,39 @@ Con el Arduino desconectado del puerto USB, realiza las siguientes conexiones us
 
 ## Funcionamiento general y pruebas realizadas
 El programa lee cada segundo la salida analógica (`A0`) del sensor HW-038:
-- **Sin lluvia (`lectura < UMBRAL_LLUVIA`):** Muestra la lectura cruda y el porcentaje aproximado en el Monitor Serial, manteniendo el servomotor en `0°` (tendedero extendido).
+- **Sin lluvia (`lectura <= UMBRAL_SECO`):** Muestra la lectura cruda y el porcentaje aproximado en el Monitor Serial, manteniendo el servomotor MOT-100 en `0°` (tendedero extendido).
 - **Lluvia detectada (`lectura >= UMBRAL_LLUVIA`):** Imprime la alerta en el Monitor Serial y gira el servomotor a `90°` para resguardar el tendedero.
-- **Protección contra movimientos repetidos:** Una bandera booleana (`tendederoResguardado`) evita reenviar la posición al servo si ya se encuentra en el estado correcto.
+- **Histéresis y control de estado:** Una bandera booleana (`tendederoResguardado`) combinada con dos umbrales (`100` para cerrar y `50` para reabrir) evita vibraciones o movimientos repetidos del servomotor cuando la humedad está cerca del límite.
 
 ### Registro de pruebas
-Pruebas realizadas en **Arduino Uno** con el sensor **HW-038** monitoreado a `9600 baudios`:
+Pruebas realizadas en **Arduino Uno** con el sensor **HW-038** y el micro servomotor **Steren MOT-100**, monitoreado a `9600 baudios`:
 
 | Condición probada | Lectura HW-038 / Nivel (%) | Respuesta esperada del sistema | Resultado observado | Evidencia |
 | :--- | :--- | :--- | :--- | :--- |
-| 1. Sensor seco | `0` (`0%`) | Mensaje `SIN LLUVIA`, servo en `0°` | Estable en `0` (`0%`), estado `SIN LLUVIA -> Tendedero extendido (0 grados)` | `docs/evidencias/prueba_seco.heic` |
-| 2. Lluvia detectada (agua sobre el sensor) | `551` a `630` (`84%` a `96%`) | Mensaje `LLUVIA DETECTADA`, servo gira a `90°` | Subió de `0` a `551–630` (`84%–96%`), cambió a `LLUVIA DETECTADA -> Resguardando tendedero (90 grados)` | `docs/evidencias/prueba_lluvia.heic` |
-| 3. Secado / recuperación | `627` → `423–486` → `0` (`96%` → `65%–74%` → `0%`) | Mensaje `SIN LLUVIA`, servo regresa a `0°` | Al retirar el agua bajó a `0` (`0%`) y regresó automáticamente a `SIN LLUVIA -> Tendedero extendido (0 grados)` | `docs/evidencias/prueba_recuperacion.heic` |
+| 1. Sensor seco | `0` (`0%`) | Mensaje `SIN LLUVIA`, servo en `0°` | Estable en `0` (`0%`), estado `SIN LLUVIA -> Tendedero extendido (0 grados)` y brazo del MOT-100 en `0°` | [Monitor Serial](docs/evidencias/prueba_seco.jpeg) · [Circuito](docs/evidencias/circuito_seco.jpg) |
+| 2. Lluvia detectada (agua sobre el sensor) | `551` a `630` (`84%` a `96%`) | Mensaje `LLUVIA DETECTADA`, servo gira a `90°` | Subió de `0` a `551–630` (`84%–96%`), cambió a `LLUVIA DETECTADA` y el brazo del MOT-100 giró a `90°` | [Monitor Serial](docs/evidencias/prueba_lluvia.jpeg) · [Circuito](docs/evidencias/circuito_lluvia.jpg) |
+| 3. Secado / recuperación | `627` → `423–486` → `0` (`96%` → `65%–74%` → `0%`) | Mensaje `SIN LLUVIA`, servo regresa a `0°` | Al retirar el agua bajó a `0` (`0%`) y el sistema regresó automáticamente a `0°` | [Monitor Serial](docs/evidencias/prueba_recuperacion.jpeg) |
+
+### Evidencias fotográficas del prototipo
+**1. Estado seco (brazo del servomotor MOT-100 en `0°`, tendedero extendido):**
+
+![Circuito en estado seco](docs/evidencias/circuito_seco.jpg)
+
+**2. Lluvia detectada (gotas sobre el sensor HW-038 y brazo del servomotor girado a `90°`):**
+
+![Circuito con agua detectada](docs/evidencias/circuito_lluvia.jpg)
 
 ## Aportaciones de cada integrante
-- **Jonathan Vázquez:** Configuración inicial del repositorio, programación del sistema de lectura del sensor HW-038 y control del servomotor en Arduino Uno, calibración física del mecanismo y revisión/fusión del Pull Request.
-- **Ximena López:** Documentación técnica del proyecto en `README.md`, diseño de la tabla de conexiones y protocolo de pruebas, registro de evidencias de funcionamiento y creación del Pull Request en GitHub.
+- **Jonathan Vázquez:** Configuración inicial del repositorio, programación del sistema de lectura del sensor HW-038 y control del servomotor Steren MOT-100 en Arduino Uno, calibración física con histéresis en rama `feature/calibracion-servo` y revisión/fusión de Pull Requests.
+- **Ximena López:** Documentación técnica del proyecto en `README.md`, diseño de la tabla de conexiones y protocolo de pruebas, registro de evidencias del Monitor Serial y fotografías del circuito funcionando, y creación del Pull Request desde la rama `feature/documentacion-pruebas`.
 
 ## Limitaciones y posibles mejoras
 ### Limitaciones actuales
-- El prototipo usa un servomotor SG90 pensado para una maqueta ligera; un tendedero real con ropa húmeda requiere un motor con mayor torque y fuente de alimentación externa.
+- El prototipo usa un micro servomotor Steren MOT-100 pensado para una maqueta ligera; un tendedero real con ropa húmeda requiere un motor con mayor torque y fuente de alimentación externa.
 - Las pistas expuestas del sensor HW-038 pueden oxidarse si permanecen energizadas continuamente al exterior.
 - El sistema depende del cable USB para alimentación y monitoreo en el Monitor Serial.
 
 ### Posibles mejoras
 - Agregar un LED indicador y un buzzer para emitir alertas visuales y sonoras al detectar lluvia.
-- Incorporar un retardo de confirmación para evitar que el tendedero se abra y cierre repetidamente ante llovizna intermitente.
+- Incorporar un retardo de confirmación adicional en segundos ante llovizna intermitente.
 - Conectar un módulo Wi-Fi (como ESP8266 o ESP32) para enviar notificaciones al celular cuando el tendedero se cierre automáticamente.
